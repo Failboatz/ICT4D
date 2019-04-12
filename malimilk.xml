@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vxml version="2.1" application="http://webhosting.voxeo.net/205793/www/root.xml">
+
+<property name="inputmodes" value="dtmf" />
+
+<!-- event for product selection -->
+<catch event="product_selected">
+  <prompt>
+    .
+  </prompt>
+  <assign name="product" expr="_message" />
+  <assign name="units" expr="'litre'"/>
+  <assign name="user" expr="session.callerid"/>
+  <goto next="#seller_details" />
+</catch>
+
+<!-- event for order product selection -->
+<catch event="order_product">
+  <prompt>
+    .
+  </prompt>
+  <assign name="product" expr="_message"/>
+  <assign name="units" expr="'litre'"/>
+  <assign name="user" expr="session.callerid"/>
+  <goto next="#buyer_details"/>
+</catch>
+
+<!-- end event -->
+<catch event="end">
+  <disconnect/>
+</catch>
+
+<!-- main menu -->
+<menu id="main_menu" scope="dialog" dtmf="true">
+  <prompt>
+    Welcome to Mali Milk.
+    <break time="1000"/>
+    If you want to buy, Press 1
+    <break time="1000"/>
+    If you want to sell, Press 2
+  </prompt>
+
+  <choice next="#menu_buyer"></choice>
+  <choice next="#menu_seller"></choice>
+</menu>
+
+<!-- buyer menu -->
+<menu id="menu_buyer" scope="dialog" dtmf="true">
+  <prompt>
+    <break time="1000"/>
+    Please add information for your order.
+    <enumerate>
+      For <value expr="_prompt"/>, press <value expr="_dtmf"/>.
+      <break time="500"/>
+    </enumerate>
+  </prompt>
+
+  <choice event="order_product" message="Milk">Milk</choice>
+  <choice event="order_product" message="Yoghurt">Yoghurt</choice>
+  <choice event="order_product" message="Cheese">Cheese</choice>
+</menu>
+
+<!-- seller menu -->
+<menu id="menu_seller" scope="dialog" dtmf="true">
+  <prompt>
+    <break time="1000"/>
+    Which product orders would you like to retrieve.
+    <enumerate>
+      For <value expr="_prompt"/>, press <value expr="_dtmf"/>.
+    </enumerate>
+  </prompt>
+
+  <choice event="product_selected" message="Milk">Milk</choice>
+  <choice event="product_selected" message="Yoghurt">Yoghurt</choice>
+  <choice event="product_selected" message="Cheese">Cheese</choice>
+</menu>
+
+<!-- buyer details  -->
+<form id="buyer_details">
+  <property name="bargein" value="true"/>
+  <field name="form_quantity" type="number">
+    <prompt>
+      How many <value expr="units"/> of <value expr="product"/> would you like to order?
+      Enter the quantity and press hash
+    </prompt>
+    <filled>
+      <assign name="quantity" expr="form_quantity"/>
+    </filled>
+  </field>
+  <!-- Has to be changed to accept names and address -->
+  <record name="form_name" beep="true" dtmfterm="true" finalsilence="5s" maxtime="10s" type="audio/x-wav">
+    <prompt>
+      What is your name?
+    </prompt>
+    <noinput>
+      I didn't hear anything, please try again.
+    </noinput>
+    <filled>
+      <log expr="form_name$.duration"/>
+      <log expr="form_name$.termchar"/>
+      <log expr="form_name$.size"/>
+      <assign name="name" expr="form_name"/>
+    </filled>
+  </record>
+  <record name="form_address" beep="true" dtmfterm="true" finalsilence="5s" maxtime="10s" type="audio/x-wav">
+    <prompt>
+      What is your address?
+    </prompt>
+    <noinput>
+      I didn't hear anything, please try again.
+    </noinput>
+    <filled>
+      <log expr="form_address$.duration"/>
+      <log expr="form_address$.termchar"/>
+      <log expr="form_address$.size"/>
+      <assign name="address" expr="form_address"/>
+    </filled>
+  </record>
+
+  <filled>
+    <goto next="#confirm_order"/>
+  </filled>
+</form>
+
+<!-- seller details -->
+<menu id="seller_details" scope="dialog" dtmf="true">
+  <!-- based on the selected product retrieve the orders and play them to the seller -->
+  <prompt>
+    <!-- play the milk orders -->
+    <audio src="sound/name.wav"/> would like to order 1 litre of <value expr="product"/>.
+    the address is <audio src="sound/address.wav"/>
+    <break time="1000"/>
+    To repeat the order, press 1
+    <break time="1000"/>
+    To continue, press 2
+  </prompt>
+
+  <choice next="#seller_details"></choice>
+  <choice next="#confirm_seller"></choice>
+</menu>
+
+<!-- order confirmation form -->
+<menu id="confirm_order" scope="dialog" dtmf="true">
+  <prompt>
+    <!-- Both <value> and <audio> work with the record files -->
+    You placed an order for <value expr="quantity"/> <value expr="units"/> of <value expr="product"/>.
+    With the name <value expr="name"/> and address <audio expr="address"/>
+    <break time="1000"/>
+    To Confirm, Press 1
+    <break time="1000"/>
+    To cancel your order, Press 2
+  </prompt>
+
+  <!-- <choice next="#save_order"></choice> -->
+  <choice next="#last_order"></choice>
+  <choice next="#menu_buyer"></choice>
+</menu>
+
+<!-- add confirmation form -->
+<menu id="confirm_seller" scope="dialog" dtmf="true">
+  <prompt>
+    The order you selected is.
+    <audio src="sound/name.wav"/> would like to order 1 litre of <value expr="product"/>.
+    the address is <audio src="sound/address.wav"/>
+    <break time="1000"/>
+    To complete this order, Press 1
+    <break time="1000"/>
+    To select a different order, Press 2
+    <break time="1000"/>
+    To quit, Press 3
+  </prompt>
+
+  <choice next="#complete_order"></choice>
+  <choice next="#menu_seller"></choice>
+  <choice event="end"></choice>
+</menu>
+
+<!-- place order in the system -->
+<form id="save_order">
+  <block>
+    <data name="ordersave" src="http://malimilk.000webhostapp.com/order.php" namelist="user product quantity name address" method="get"/>
+    <goto next="#last_order"/>
+  </block>
+</form>
+
+<!-- complete order and remove from system -->
+<menu id="complete_order" scope="dialog" dtmf="true">
+  <!-- The removal of the order is not yet implemented -->
+  <prompt>
+    You can now complete the order.
+    <break time="1000"/>
+    If you want to listen to other orders, press 1.
+    <break time="1000"/>
+    To Finish, press 2.
+  </prompt>
+
+  <choice next="#menu_seller"></choice>
+  <choice event="end"></choice>
+</menu>
+
+<!-- finish form -->
+<menu id="last_order" scope="dialog" dtmf="true">
+  <prompt>
+    Your order has been posted
+    <break time="1000"/>
+    To place another order, Press 1
+    <break time="1000"/>
+    To Finish, Press 2
+  </prompt>
+
+  <choice next="#menu_buyer"></choice>
+  <choice event="end"></choice>
+</menu>
+
+</vxml>
